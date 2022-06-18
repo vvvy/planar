@@ -1,8 +1,7 @@
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn it_works() {
-        let result = 2 + 2;
-        assert_eq!(result, 4);
-    }
+mod function;
+
+use pal::function::*;
+
+pub fn function_runtime() -> Box<dyn FunctionRuntime> { 
+    Box::new(function::FunctionRuntimeImpl)
 }
