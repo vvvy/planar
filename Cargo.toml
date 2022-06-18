@@ -1,0 +1,2 @@
+[workspace]
+members=["planar-core", "sqlp", "cp", "disp", "ip", "pmapi", "tmapi", "pal", "p-hc", "p-local"]
