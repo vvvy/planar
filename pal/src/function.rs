@@ -1,18 +1,20 @@
-use std::sync::Arc;
 use planar_core::*;
 pub use planar_core::apdu::*;
+use std::sync::Arc;
+use async_trait::async_trait;
 
-pub trait FunctionServer<Q: serde::de::DeserializeOwned, R: serde::Serialize>: Send + Sync {
-    fn invoke(&self, q: Q) -> Result<R>;
+#[async_trait]
+pub trait Context: Send + Sync {
+    async fn invoke_sqlp(&self, q: &SQLPQ) -> Result<SQLPR>;
 }
 
-pub trait FunctionClient<Q: serde::Serialize, R: serde::de::DeserializeOwned> {
-    fn invoke(&self, q: Q) -> Result<R>;
+#[async_trait]
+pub trait Function<Q: serde::de::DeserializeOwned, R: serde::Serialize>: Send + Sync {
+    async fn invoke(&self, cx: &dyn Context, q: Q) -> Result<R>;
 }
 
 pub trait FunctionRuntime {
-    fn register_sqlp(&self, svc: Arc<dyn FunctionServer<SQLPQ, SQLPR>>);
-    fn get_sqlp(&self) -> Box<dyn FunctionClient<SQLPQ, SQLPR>>;
+    fn register_sqlp(&self, svc: Arc<dyn Function<SQLPQ, SQLPR>>);
 }
 
 

@@ -1,7 +1,9 @@
 mod function;
+mod metastore;
+mod queue;
 
-use pal::function::*;
+pub use planar_core::*;
+pub use queue::{consume, publish};
 
-pub fn function_runtime() -> Box<dyn FunctionRuntime> { 
-    Box::new(function::FunctionRuntimeImpl)
-}
+pub use function::Runtime;
+

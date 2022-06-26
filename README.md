@@ -16,6 +16,6 @@ This work is currently in its very early stages.
 | `disp`          | Dispatcher                                          |
 | `tmapi`         | Table Metadata API                                  |
 | `pmapi`         | Process Metadata API                                |
-| `cpal`          | Cloud Provider Abstraction Layer library            |
-| `cp-local`      | Local runner for panar                              |
-| `cp-hc`         | Huawei Cloud support                                |
+| `pal`           | Cloud Provider Abstraction Layer library            |
+| `p-local`       | Local runner for panar                              |
+| `p-hc`          | Huawei Cloud support                                |

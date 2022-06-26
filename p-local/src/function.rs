@@ -1,60 +1,103 @@
 
 use planar_core::*;
 use pal::function::*;
-use serde::{de::DeserializeOwned, Serialize};
-use serde_json::json;
-use warp::{Filter, body, reply, path};
 use std::{sync::Arc, marker::PhantomData};
+use std::convert::Infallible;
+use hyper::{Body, Request, Response, Server};
+use hyper::service::{make_service_fn, service_fn};
+use async_trait::async_trait;
 
-
-fn launch_server<Q, R>(port: u16, svc: Arc<dyn FunctionServer<Q, R>>) where 
+fn launch_web_server<Q, R>(port: u16, cx: Arc<dyn Context>, svc: Arc<dyn Function<Q, R>>) where 
     Q: serde::de::DeserializeOwned + Send + 'static, 
     R: serde::Serialize + 'static {
-    let route = path("invoke")
-        .and(body::json())
-        .map(move |q| match svc.invoke(q) { 
-            Ok(w) => reply::json(&w),
-            Err(e) => reply::json(&json!({"error": e.to_string()}))
+        let addr = ([127, 0, 0, 1], port).into();
+        
+        let make_svc = make_service_fn(move |_| {
+            let svc = svc.clone();
+            let cx = cx.clone();
+            async move {
+                Ok::<_, Infallible>(service_fn(move |mut q: Request<Body>|{ 
+                    let svc = svc.clone();
+                    let cx = cx.clone();
+                    async move {
+                        let qraw = hyper::body::to_bytes(q.body_mut()).await?;
+                        let q: Q = serde_json::from_slice(qraw.as_ref())?;
+                        let r = svc.invoke(cx.as_ref(), q).await?;
+                        let rraw = serde_json::to_vec(&r)?;
+                        Ok::<_, Error>(Response::new(Body::from(rraw)))
+                    }
+                }))
+            }
         });
-    let server = warp::serve(route);
-    tokio::spawn(async move { server.run(([127, 0, 0, 1], port)) });
+        
+        // Then bind and serve...
+        let server = Server::bind(&addr)
+            .serve(make_svc);
+        
+        tokio::spawn(server);
 }
 
-struct LocalFunctionClient<Q, R> {
+use hyper::{client::connect::HttpConnector, Method, Client};
+
+struct WebClient<Q, R> {
+    client: Client<HttpConnector, Body>,
     url: String,
     _q: PhantomData<Q>,
     _r: PhantomData<R>
 }
 
-impl<Q, R> LocalFunctionClient<Q, R> {
+impl<Q: serde::Serialize, R: serde::de::DeserializeOwned> WebClient<Q, R> {
     fn new(target_port: u16) -> Self {
         Self { 
             url: format!("http://127.0.0.1:{}/invoke", target_port),
+            client: Client::new(),
             _q: PhantomData, _r: PhantomData 
         }
     }
-}
 
-impl<Q: Serialize, R: DeserializeOwned> FunctionClient<Q, R> for LocalFunctionClient<Q, R> {
-    fn invoke(&self, q: Q) -> Result<R> {
-        let w = reqwest::blocking::Client::new()
-            .post(&self.url)
-            .json(&q)
-            .send()?;
-        let w = w.json()?;
-        Ok(w)
+    async fn invoke(&self, q: &Q) -> Result<R> {
+
+        let qraw = serde_json::to_vec(q)?;
+
+        let req = Request::builder()
+            .method(Method::POST)
+            .uri(&self.url)
+            .body(Body::from(qraw))?;
+
+        let mut resp = self.client.request(req).await?;
+        let rraw = hyper::body::to_bytes(resp.body_mut()).await?;
+        let r: R = serde_json::from_slice(rraw.as_ref())?;
+        Ok(r)
     }
 }
 
 
-pub struct FunctionRuntimeImpl;
+const SQLP_PORT: u16 = 7001;
 
-impl FunctionRuntime for FunctionRuntimeImpl {
-    fn register_sqlp(&self, svc: Arc<dyn FunctionServer<SQLPQ, SQLPR>>) {
-        launch_server(7001, svc)
+struct LocalContext { 
+    sqlp: WebClient<SQLPQ, SQLPR>
+}
+
+impl LocalContext {
+    fn new() -> Self { Self { sqlp: WebClient::new(SQLP_PORT)  }}
+}
+
+#[async_trait]
+impl Context for LocalContext {
+
+    async fn invoke_sqlp(&self, q: &SQLPQ) -> Result<SQLPR> {
+        self.sqlp.invoke(q).await
     }
+}
 
-    fn get_sqlp(&self) -> Box<dyn FunctionClient<SQLPQ, SQLPR>> {
-        Box::new(LocalFunctionClient::new(7001))
+pub struct Runtime {
+    cx: Arc<LocalContext>
+}
+
+impl Runtime {
+    pub fn new() -> Self { Self { cx: Arc::new(LocalContext::new()) } }
+
+    pub fn run_sqlp(&self, svc: Arc<dyn Function<SQLPQ, SQLPR>>) {
+        launch_web_server(SQLP_PORT, self.cx.clone(), svc)
     }
 }

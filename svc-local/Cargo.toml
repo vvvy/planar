@@ -1,11 +1,9 @@
 [package]
-name = "pal"
+name = "svc-local"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-planar-core = { path = "../planar-core" }
-serde = "1.0"
-async-trait = "0.1.56"
+p-local = { path = "../p-local" }

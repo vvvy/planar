@@ -1,3 +1,11 @@
+use pal::function::*;
+use std::sync::Arc;
+
+pub fn get_service() ->  Arc<dyn Function<SQLPQ, SQLPR>> {
+    todo!()
+}
+
+/*
 #[cfg(test)]
 mod tests {
     #[test]
@@ -6,3 +14,4 @@ mod tests {
         assert_eq!(result, 4);
     }
 }
+*/

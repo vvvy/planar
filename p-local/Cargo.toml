@@ -11,5 +11,8 @@ pal = { path = "../pal" }
 serde = "1.0"
 serde_json = "1.0"
 tokio = { version = "1", features = ["full"] }
-warp = "0.3"
-reqwest = { version = "0.11", default-features = false, features = ["blocking", "json"] }
+hyper = { version = "0.14.19", features = ["server", "client", "tcp"] }
+etcd-client = "0.9"
+lapin = { version = "2.1.1", default-features = false }
+futures-lite = "1.12.0"
+async-trait = "0.1.56"
