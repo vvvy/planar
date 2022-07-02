@@ -3,11 +3,13 @@ use planar_core::*;
 use pal::function::*;
 use std::{sync::Arc, marker::PhantomData};
 use std::convert::Infallible;
-use hyper::{Body, Request, Response, Server};
-use hyper::service::{make_service_fn, service_fn};
-use async_trait::async_trait;
 
-fn launch_web_server<Q, R>(port: u16, cx: Arc<dyn Context>, svc: Arc<dyn Function<Q, R>>) where 
+use hyper::{Body, Request, Response, Server, Method, Client, client::connect::HttpConnector};
+use hyper::service::{make_service_fn, service_fn};
+
+pub (crate) fn launch_web_server<Q, R>(port: u16, cx: Arc<dyn Context>, svc: Arc<dyn Function<Q, R>>)
+-> tokio::task::JoinHandle<Result<()>> 
+where 
     Q: serde::de::DeserializeOwned + Send + 'static, 
     R: serde::Serialize + 'static {
         let addr = ([127, 0, 0, 1], port).into();
@@ -32,14 +34,20 @@ fn launch_web_server<Q, R>(port: u16, cx: Arc<dyn Context>, svc: Arc<dyn Functio
         
         // Then bind and serve...
         let server = Server::bind(&addr)
-            .serve(make_svc);
+            .serve(make_svc)
+            ;
+
+        //convert error type
+        let server = async { match server.await {
+                Ok(()) => Ok(()),
+                Err(e) => Err(e.into())
+            }
+        };
         
-        tokio::spawn(server);
+        tokio::spawn(server)
 }
 
-use hyper::{client::connect::HttpConnector, Method, Client};
-
-struct WebClient<Q, R> {
+pub(crate) struct WebClient<Q, R> {
     client: Client<HttpConnector, Body>,
     url: String,
     _q: PhantomData<Q>,
@@ -47,7 +55,7 @@ struct WebClient<Q, R> {
 }
 
 impl<Q: serde::Serialize, R: serde::de::DeserializeOwned> WebClient<Q, R> {
-    fn new(target_port: u16) -> Self {
+    pub(crate) fn new(target_port: u16) -> Self {
         Self { 
             url: format!("http://127.0.0.1:{}/invoke", target_port),
             client: Client::new(),
@@ -55,7 +63,7 @@ impl<Q: serde::Serialize, R: serde::de::DeserializeOwned> WebClient<Q, R> {
         }
     }
 
-    async fn invoke(&self, q: &Q) -> Result<R> {
+    pub(crate) async fn invoke(&self, q: &Q) -> Result<R> {
 
         let qraw = serde_json::to_vec(q)?;
 
@@ -72,32 +80,3 @@ impl<Q: serde::Serialize, R: serde::de::DeserializeOwned> WebClient<Q, R> {
 }
 
 
-const SQLP_PORT: u16 = 7001;
-
-struct LocalContext { 
-    sqlp: WebClient<SQLPQ, SQLPR>
-}
-
-impl LocalContext {
-    fn new() -> Self { Self { sqlp: WebClient::new(SQLP_PORT)  }}
-}
-
-#[async_trait]
-impl Context for LocalContext {
-
-    async fn invoke_sqlp(&self, q: &SQLPQ) -> Result<SQLPR> {
-        self.sqlp.invoke(q).await
-    }
-}
-
-pub struct Runtime {
-    cx: Arc<LocalContext>
-}
-
-impl Runtime {
-    pub fn new() -> Self { Self { cx: Arc::new(LocalContext::new()) } }
-
-    pub fn run_sqlp(&self, svc: Arc<dyn Function<SQLPQ, SQLPR>>) {
-        launch_web_server(SQLP_PORT, self.cx.clone(), svc)
-    }
-}

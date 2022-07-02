@@ -1,9 +1,9 @@
 mod function;
 mod metastore;
 mod queue;
+mod runtime;
 
 pub use planar_core::*;
-pub use queue::{consume, publish};
+pub use queue::{Consumer, Publisher};
 
-pub use function::Runtime;
-
+pub use runtime::Runtime;

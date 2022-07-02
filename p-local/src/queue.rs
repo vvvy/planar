@@ -1,3 +1,3 @@
 mod amqp;
 
-pub use amqp::{consume, publish};
+pub use amqp::{Consumer, Publisher};
