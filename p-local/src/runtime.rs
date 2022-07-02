@@ -42,11 +42,6 @@ pub struct Runtime {
 impl Runtime {
     pub async fn new() -> Result<Self> { Ok(Self { cx: Arc::new(LocalContext::new().await?) }) }
 
-    pub async fn block() {
-        let h = tokio::runtime::Handle::current();
-        h.spawn_blocking(|| std::future::pending::<()>());
-    }
-
     pub fn context(&self) -> Arc<dyn Context> { return self.cx.clone() } 
 
     pub fn run_sqlp(&self, svc: Arc<dyn Function<SQLPQ, SQLPR>>) -> JoinHandle<Result<()>> {
