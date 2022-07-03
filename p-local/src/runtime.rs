@@ -1,6 +1,6 @@
 use planar_core::*;
-use pal::function::*;
-use crate::{function::*, queue::*};
+use pal::{function::*, metadata::{TableMetadataApi, TableMetadataApiImpl}};
+use crate::{function::*, queue::*, metastore::*};
 use async_trait::async_trait;
 use tokio::task::JoinHandle;
 use std::sync::Arc;
@@ -11,13 +11,15 @@ const DISP_Q: &'static str = "disp";
 
 struct LocalContext { 
     sqlp: WebClient<SQLPQ, SQLPR>,
-    disp: Publisher<DispM>
+    disp: Publisher<DispM>,
+    tmd: TableMetadataApiImpl<MetadataClient>
 }
 
 impl LocalContext {
     async fn new() -> Result<Self> { Ok(Self { 
         sqlp: WebClient::new(SQLP_PORT),
-        disp: Publisher::new(DISP_Q.into()).await?
+        disp: Publisher::new(DISP_Q.into()).await?,
+        tmd: TableMetadataApiImpl::new(MetadataClient {  })
     })}
 }
 
@@ -30,6 +32,10 @@ impl Context for LocalContext {
 
     async fn submit_disp(&self, m: &DispM) -> Result<()> {
         self.disp.publish(m).await
+    }
+
+    async fn table_metadata(&self) -> &dyn TableMetadataApi {
+        &self.tmd
     }
 
 }
