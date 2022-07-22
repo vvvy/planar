@@ -3,15 +3,17 @@ use planar_core::*;
 use pal::function::*;
 use std::{sync::Arc, marker::PhantomData};
 use std::convert::Infallible;
+use std::fmt::Debug;
 
 use hyper::{Body, Request, Response, Server, Method, Client, client::connect::HttpConnector};
 use hyper::service::{make_service_fn, service_fn};
+use tracing::{info, trace, info_span, Instrument};
 
 pub (crate) fn launch_web_server<Q, R>(port: u16, cx: Arc<dyn Context>, svc: Arc<dyn Function<Q, R>>)
 -> tokio::task::JoinHandle<Result<()>> 
 where 
-    Q: serde::de::DeserializeOwned + Send + 'static, 
-    R: serde::Serialize + 'static {
+    Q: serde::de::DeserializeOwned + Debug + Send + 'static, 
+    R: serde::Serialize + Debug + 'static {
         let addr = ([127, 0, 0, 1], port).into();
         
         let make_svc = make_service_fn(move |_| {
@@ -24,7 +26,9 @@ where
                     async move {
                         let qraw = hyper::body::to_bytes(q.body_mut()).await?;
                         let q: Q = serde_json::from_slice(qraw.as_ref())?;
+                        trace!(what="q", data=?q);
                         let r = svc.invoke(cx.as_ref(), q).await?;
+                        trace!(what="r", data=?r);
                         let rraw = serde_json::to_vec(&r)?;
                         Ok::<_, Error>(Response::new(Body::from(rraw)))
                     }
@@ -35,6 +39,7 @@ where
         // Then bind and serve...
         let server = Server::bind(&addr)
             .serve(make_svc)
+            .instrument(info_span!("webserver", port=%port))
             ;
 
         //convert error type
@@ -43,6 +48,8 @@ where
                 Err(e) => Err(e.into())
             }
         };
+
+        info!(msg="web server startup", port=%port);
         
         tokio::spawn(server)
 }
