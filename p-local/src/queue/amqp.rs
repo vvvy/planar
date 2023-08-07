@@ -96,7 +96,7 @@ impl<Q: DeserializeOwned + Send + Sync + core::fmt::Debug + 'static> Consumer<Q>
             .await?;
         let q: Q = serde_json::from_slice(&delivery.data)?; //TODO: must not return on error?
         trace!(event="deliver", data=?q);
-        let () = self.svc.invoke(self.cx.as_ref(), q).await?;
+        self.svc.invoke(self.cx.as_ref(), q).await?;
         Ok(())
     }
 

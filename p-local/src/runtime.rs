@@ -7,7 +7,7 @@ use std::sync::Arc;
 
 
 const SQLP_PORT: u16 = 7001;
-const DISP_Q: &'static str = "disp";
+const DISP_Q: &str = "disp";
 
 struct LocalContext { 
     sqlp: WebClient<SQLPQ, SQLPR>,
@@ -48,7 +48,7 @@ pub struct Runtime {
 impl Runtime {
     pub async fn new() -> Result<Self> { Ok(Self { cx: Arc::new(LocalContext::new().await?) }) }
 
-    pub fn context(&self) -> Arc<dyn Context> { return self.cx.clone() } 
+    pub fn context(&self) -> Arc<dyn Context> { self.cx.clone() } 
 
     pub fn run_sqlp(&self, svc: Arc<dyn Function<SQLPQ, SQLPR>>) -> JoinHandle<Result<()>> {
         launch_web_server(SQLP_PORT, self.cx.clone(), svc) 

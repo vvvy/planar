@@ -22,7 +22,7 @@ impl MetaStoreAsyncClient {
     pub(crate) async fn get<V: DeserializeOwned>(&mut self, key: &str) -> Result<Option<V>> {
         let w = self.client.get(key, None).await?;
         let kvs = w.kvs();
-        let rv = if kvs.len() > 0 { Some(serde_json::from_slice(kvs[0].value())?) } else { None } ;
+        let rv = if !kvs.is_empty() { Some(serde_json::from_slice(kvs[0].value())?) } else { None } ;
         Ok(rv)
     }
 }

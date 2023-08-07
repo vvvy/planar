@@ -9,11 +9,11 @@ pub enum KeyNamespace {
     Table
 }
 
-impl Into<String> for KeyNamespace {
-    fn into(self) -> String {
-        match self {
-            Self::Table => "t".into(),
-            Self::Process => "p".into(),
+impl From<KeyNamespace> for String {
+    fn from(value: KeyNamespace) -> Self {
+        match value {
+            KeyNamespace::Table => "t".into(),
+            KeyNamespace::Process => "p".into(),
         }
     }
 }
@@ -40,9 +40,12 @@ impl<'r> Key<'r> {
     //fn n4(ns: KeyNamespace, l1: &'r str, l2: &'r str, l3: &'r str, l4: &'r str) -> Self { Self { ns, l1, l2, l3, l4 } }
 }
 
-impl<'r> Into<Key<'r>> for TableDefKey<'r> {
-    fn into(self) -> Key<'r> { Key::n2(KeyNamespace::Table, self.schema, self.table) }
+impl<'r> From<TableDefKey<'r>> for Key<'r> {
+    fn from(value: TableDefKey<'r>) -> Self {
+        Key::n2(KeyNamespace::Table, value.schema, value.table)
+    }
 }
+
 
 #[async_trait]
 pub trait MetadataApi {
